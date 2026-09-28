@@ -46,7 +46,7 @@ export default function Verifica() {
 
   return (
     <div className="app-shell">
-      <div className="screen">
+      <div className="screen card-on-desktop">
         <div className="topbar">
           <button className="back-btn" onClick={() => navigate('/')} aria-label="Indietro"><BackIcon /></button>
           <div className="topbar-title">Verifica i tuoi diritti</div>

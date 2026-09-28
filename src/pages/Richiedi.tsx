@@ -169,7 +169,7 @@ export default function Richiedi() {
   if (done) {
     return (
       <div className="app-shell">
-        <div className="screen">
+        <div className="screen card-on-desktop">
           <div className="brand-row" style={{ padding: '24px 24px 0 24px' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 12h11" /><path d="M11 6l6 6-6 6" /><path d="M19 5v14" />
@@ -216,7 +216,7 @@ export default function Richiedi() {
 
   return (
     <div className="app-shell">
-      <div className="screen">
+      <div className="screen card-on-desktop">
         <div className="topbar">
           <button className="back-btn" onClick={goBack} aria-label="Indietro"><BackIcon /></button>
           <div className="topbar-title">

@@ -60,7 +60,10 @@ button { font-family: inherit; }
 .wrap { max-width: 640px; margin-inline: auto; padding-inline: 20px; }
 .wrap-wide { max-width: 1080px; margin-inline: auto; padding-inline: 20px; }
 
-/* mobile-first "app" screen: phone-width column, centered on larger viewports */
+/* mobile-first "app" screen: phone-width column, centered on larger viewports.
+   Used by the wizard-style flows (Richiedi, Verifica). On desktop viewports
+   (see media query below) it turns into a centered card on a soft website
+   background instead of a bare phone-width stripe. */
 .app-shell { min-height: 100vh; background: var(--bg); display: flex; justify-content: center; }
 .screen { width: 100%; max-width: 440px; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 
@@ -80,6 +83,31 @@ button { font-family: inherit; }
 
 .step-body { display: flex; flex-direction: column; gap: 22px; padding: 0 24px; flex-grow: 1; }
 .step-footer { padding: 16px 24px 32px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+/* On real desktop widths, the wizard/checker flows stop being a stretched
+   phone frame and become a centered card sitting on a soft website
+   background — the same visual language (colors, chips, cards), a
+   different container. */
+@media (min-width: 720px) {
+  .app-shell {
+    background:
+      radial-gradient(circle at 10% -10%, color-mix(in oklch, var(--navy) 7%, transparent) 0%, transparent 45%),
+      radial-gradient(circle at 100% 20%, color-mix(in oklch, var(--accent) 8%, transparent) 0%, transparent 40%),
+      var(--bg);
+    padding: 56px 24px;
+    align-items: flex-start;
+  }
+  .screen { min-height: 0; }
+  .screen.card-on-desktop {
+    max-width: 560px;
+    margin: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+  }
+}
 
 /* ---------- cards ---------- */
 .card {
@@ -172,7 +200,7 @@ button { font-family: inherit; }
   70% { transform: scale(1.35); opacity: 0; }
   100% { transform: scale(1.35); opacity: 0; }
 }
-.pulse-wrap { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-inline: auto; }
+.pulse-wrap { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-inline: auto; flex-shrink: 0; }
 .pulse-ring { position: absolute; inset: 0; border-radius: 50%; background: color-mix(in oklch, var(--accent) 35%, transparent); animation: pulseRing 2.2s ease-out infinite; }
 .pulse-ring.d2 { animation-delay: .7s; }
 .pulse-ring.d3 { animation-delay: 1.4s; }
@@ -182,6 +210,60 @@ button { font-family: inherit; }
 .checklist-dot-done { width: 26px; height: 26px; border-radius: 50%; background: var(--success); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .checklist-dot-pending { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid var(--accent); border-top-color: transparent; flex-shrink: 0; animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- home / landing page (full website layout, not a phone frame) ---------- */
+.home-page { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+
+.home-nav { display: flex; align-items: center; padding: 24px 24px 0 24px; max-width: 1120px; width: 100%; margin-inline: auto; }
+
+.home-hero {
+  display: flex; flex-direction: column; gap: 32px;
+  padding: 20px 24px 48px 24px; max-width: 1120px; width: 100%; margin-inline: auto;
+}
+.home-hero-copy { display: flex; flex-direction: column; gap: 18px; }
+.home-hero-copy h1 { font-size: 32px; line-height: 1.15; max-width: 520px; }
+.home-hero-copy p { font-size: 16px; line-height: 1.5; color: var(--ink-soft); max-width: 440px; }
+.home-cta-row { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; max-width: 360px; }
+.home-footnote { font-size: 12.5px; color: var(--ink-faint); }
+.home-hero-visual { display: none; }
+
+.home-features {
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 8px 24px 56px 24px; max-width: 1120px; width: 100%; margin-inline: auto;
+}
+.home-feature-card { display: flex; align-items: flex-start; gap: 12px; }
+.home-feature-title { font-weight: 600; font-size: 15px; color: var(--ink); }
+.home-feature-body { font-size: 14px; color: var(--ink-soft); line-height: 1.4; }
+
+@media (min-width: 860px) {
+  .home-page {
+    background:
+      radial-gradient(circle at 8% -10%, color-mix(in oklch, var(--navy) 6%, transparent) 0%, transparent 45%),
+      radial-gradient(circle at 100% 15%, color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 40%),
+      var(--bg);
+  }
+  .home-nav { padding: 32px 40px 0 40px; }
+  .home-hero {
+    flex-direction: row; align-items: center; gap: 56px;
+    padding: 48px 40px 88px 40px;
+  }
+  .home-hero-copy { flex: 1; gap: 22px; }
+  .home-hero-copy h1 { font-size: 47px; max-width: 560px; }
+  .home-hero-copy p { font-size: 17.5px; max-width: 480px; }
+  .home-cta-row { flex-direction: row; max-width: none; }
+  .home-cta-row .btn { width: auto; padding-inline: 28px; }
+  .home-cta-row .btn-secondary { height: 54px; }
+  .home-hero-visual {
+    display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0;
+  }
+  .home-features {
+    flex-direction: row; padding: 8px 40px 96px 40px; gap: 28px;
+  }
+  .home-feature-card {
+    flex: 1; flex-direction: column; gap: 14px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 18px; padding: 24px; box-shadow: var(--shadow-card);
+  }
+}
 
 /* ---------- staff / pipeline (desktop) ---------- */
 table.ops-table { width: 100%; border-collapse: collapse; font-size: 14px; }
