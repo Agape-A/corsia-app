@@ -51,6 +51,26 @@ function BackIcon() {
   )
 }
 
+// Chiama la funzione IA che traduce il testo libero del paziente nel codice
+// prestazione del nostro catalogo. Non blocca mai l'invio della richiesta:
+// se la chiamata fallisce (rete, IA non configurata, ecc.) torniamo null e
+// la richiesta viene comunque salvata, semplicemente senza il codice —
+// lo staff potrà comunque leggere il testo originale e agire a mano.
+async function normalizzaPrestazione(testo: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/normalizza-prestazione', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ testo }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.codice ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function Richiedi() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -138,6 +158,13 @@ export default function Richiedi() {
     }
     setError(null)
     setSubmitting(true)
+
+    // Proviamo a tradurre subito il testo del paziente nel codice prestazione
+    // standard, così la richiesta arriva in Pipeline già pronta per
+    // l'incrocio con le strutture candidate. Se fallisce, non blocchiamo.
+    const testoPerIA = [values.tipo_prestazione, values.note_libere].filter(Boolean).join(' — ')
+    const prestazioneCodice = await normalizzaPrestazione(testoPerIA)
+
     const { error: dbError } = await supabase.from('richieste').insert({
       nome_richiedente: values.nome_richiedente,
       email: values.email,
@@ -145,6 +172,7 @@ export default function Richiedi() {
       per_conto_di: values.perAltri ? values.per_conto_di : null,
       autorizzazione_terzi: values.perAltri ? values.autorizzazione_terzi : false,
       tipo_prestazione: values.tipo_prestazione,
+      prestazione_codice: prestazioneCodice,
       ha_impegnativa: values.haImpegnativa,
       classe_rao: values.haImpegnativa ? (values.classe_rao as ClasseRAO) : null,
       data_emissione_ricetta: values.haImpegnativa ? values.data_emissione_ricetta : null,

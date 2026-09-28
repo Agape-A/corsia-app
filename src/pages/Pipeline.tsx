@@ -97,14 +97,22 @@ export default function Pipeline() {
       const { data } = await supabase.from('strutture').select('*')
       if (data) righe = (data as Struttura[]).map((s) => ({ struttura: s, disponibilita_online: false, note: null }))
     }
+    // Incrociamo anche il canale preferito dal paziente (pubblico/privato/
+    // entrambi): non ha senso proporre una struttura privata a chi ha
+    // chiesto esplicitamente solo il pubblico, e viceversa.
+    const canaleFiltrate = righe.filter((c) => {
+      if (r.canale_preferito === 'pubblico') return c.struttura.tipo === 'pubblico'
+      if (r.canale_preferito === 'privato') return c.struttura.tipo === 'privato' || c.struttura.tipo === 'privato_convenzionato'
+      return true
+    })
     const zona = (r.zona || '').trim().toLowerCase()
     const filtrate = zona
-      ? righe.filter((c) => {
+      ? canaleFiltrate.filter((c) => {
           const comune = (c.struttura.comune || '').toLowerCase()
           const cap = (c.struttura.cap || '').toLowerCase()
           return (comune !== '' && (comune.includes(zona) || zona.includes(comune))) || cap === zona
         })
-      : righe
+      : canaleFiltrate
     filtrate.sort((a, b) => Number(b.disponibilita_online) - Number(a.disponibilita_online))
     setCandidatiByRichiesta((prev) => ({ ...prev, [r.id]: filtrate }))
     setLoadingCandidati((prev) => ({ ...prev, [r.id]: false }))
@@ -271,7 +279,7 @@ export default function Pipeline() {
                           ) : !r.zona ? (
                             <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna zona indicata dal paziente.</p>
                           ) : (candidatiByRichiesta[r.id] ?? []).length === 0 ? (
-                            <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna struttura nel database per questa zona/prestazione — serve ancora la ricerca manuale.</p>
+                            <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna struttura nel database per questa zona/prestazione/canale ({r.canale_preferito}) — serve ancora la ricerca manuale.</p>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {(candidatiByRichiesta[r.id] ?? []).map((c) => (
