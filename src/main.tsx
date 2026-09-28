@@ -6,6 +6,7 @@ import Richiedi from './pages/Richiedi'
 import Verifica from './pages/Verifica'
 import Login from './pages/Login'
 import Pipeline from './pages/Pipeline'
+import Strutture from './pages/Strutture'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/verifica" element={<Verifica />} />
         <Route path="/staff/login" element={<Login />} />
         <Route path="/staff/pipeline" element={<Pipeline />} />
+        <Route path="/staff/strutture" element={<Strutture />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

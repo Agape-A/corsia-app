@@ -4,11 +4,14 @@ import { supabase } from '../lib/supabase'
 import {
   Richiesta,
   Chiamata,
+  Struttura,
+  StrutturaCandidata,
   RichiestaStato,
   CanaleChiamata,
   RAO_LABELS,
   STATO_LABELS,
   STATO_ORDER,
+  TIPO_STRUTTURA_LABELS,
 } from '../lib/types'
 
 function fmtDate(d: string | null) {
@@ -30,6 +33,8 @@ export default function Pipeline() {
   const [filtro, setFiltro] = useState<RichiestaStato | 'tutte'>('tutte')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chiamateByRichiesta, setChiamateByRichiesta] = useState<Record<string, Chiamata[]>>({})
+  const [candidatiByRichiesta, setCandidatiByRichiesta] = useState<Record<string, StrutturaCandidata[]>>({})
+  const [loadingCandidati, setLoadingCandidati] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -75,19 +80,52 @@ export default function Pipeline() {
     await supabase.from('richieste').update(patch).eq('id', id)
   }
 
-  async function toggleExpand(id: string) {
-    if (expandedId === id) {
+  async function loadCandidati(r: Richiesta) {
+    setLoadingCandidati((prev) => ({ ...prev, [r.id]: true }))
+    let righe: StrutturaCandidata[] = []
+    if (r.prestazione_codice) {
+      const { data } = await supabase
+        .from('strutture_prestazioni')
+        .select('disponibilita_online, note, struttura:strutture(*)')
+        .eq('prestazione_codice', r.prestazione_codice)
+      if (data) {
+        righe = (data as unknown as { disponibilita_online: boolean; note: string | null; struttura: Struttura | null }[])
+          .filter((row) => row.struttura)
+          .map((row) => ({ struttura: row.struttura as Struttura, disponibilita_online: row.disponibilita_online, note: row.note }))
+      }
+    } else {
+      const { data } = await supabase.from('strutture').select('*')
+      if (data) righe = (data as Struttura[]).map((s) => ({ struttura: s, disponibilita_online: false, note: null }))
+    }
+    const zona = (r.zona || '').trim().toLowerCase()
+    const filtrate = zona
+      ? righe.filter((c) => {
+          const comune = (c.struttura.comune || '').toLowerCase()
+          const cap = (c.struttura.cap || '').toLowerCase()
+          return (comune !== '' && (comune.includes(zona) || zona.includes(comune))) || cap === zona
+        })
+      : righe
+    filtrate.sort((a, b) => Number(b.disponibilita_online) - Number(a.disponibilita_online))
+    setCandidatiByRichiesta((prev) => ({ ...prev, [r.id]: filtrate }))
+    setLoadingCandidati((prev) => ({ ...prev, [r.id]: false }))
+  }
+
+  async function toggleExpand(r: Richiesta) {
+    if (expandedId === r.id) {
       setExpandedId(null)
       return
     }
-    setExpandedId(id)
-    if (!chiamateByRichiesta[id]) {
+    setExpandedId(r.id)
+    if (!chiamateByRichiesta[r.id]) {
       const { data } = await supabase
         .from('chiamate')
         .select('*')
-        .eq('richiesta_id', id)
+        .eq('richiesta_id', r.id)
         .order('created_at', { ascending: false })
-      setChiamateByRichiesta((prev) => ({ ...prev, [id]: (data as Chiamata[]) ?? [] }))
+      setChiamateByRichiesta((prev) => ({ ...prev, [r.id]: (data as Chiamata[]) ?? [] }))
+    }
+    if (!candidatiByRichiesta[r.id]) {
+      loadCandidati(r)
     }
   }
 
@@ -135,6 +173,7 @@ export default function Pipeline() {
           <h1 style={{ fontSize: 26, marginTop: 10 }}>Operazioni Corsia</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button className="btn btn-secondary" onClick={() => navigate('/staff/strutture')}>Strutture</button>
           {userEmail && <span className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{userEmail}</span>}
           <button className="btn btn-secondary" onClick={handleLogout}>Esci</button>
         </div>
@@ -217,14 +256,52 @@ export default function Pipeline() {
                       </select>
                     </td>
                     <td>
-                      <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: 12.5 }} onClick={() => toggleExpand(r.id)}>
+                      <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: 12.5 }} onClick={() => toggleExpand(r)}>
                         {expandedId === r.id ? 'Chiudi' : 'Dettagli'}
                       </button>
                     </td>
                   </tr>
                   {expandedId === r.id && (
                     <tr>
-                      <td colSpan={8} style={{ background: 'var(--lane-tint)', padding: 20 }}>
+                      <td colSpan={8} style={{ background: 'var(--navy-tint)', padding: 20 }}>
+                        <div style={{ marginBottom: 22 }}>
+                          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Strutture candidate</h3>
+                          {loadingCandidati[r.id] ? (
+                            <p className="mono" style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Ricerca nel database…</p>
+                          ) : !r.zona ? (
+                            <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna zona indicata dal paziente.</p>
+                          ) : (candidatiByRichiesta[r.id] ?? []).length === 0 ? (
+                            <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna struttura nel database per questa zona/prestazione — serve ancora la ricerca manuale.</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {(candidatiByRichiesta[r.id] ?? []).map((c) => (
+                                <div
+                                  key={c.struttura.id}
+                                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px', flexWrap: 'wrap', gap: 8 }}
+                                >
+                                  <div>
+                                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                                      {c.struttura.nome} <span className="pill" style={{ marginLeft: 6 }}>{TIPO_STRUTTURA_LABELS[c.struttura.tipo]}</span>
+                                    </div>
+                                    <div className="mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>
+                                      {c.struttura.comune || '—'}{c.struttura.telefono ? ` · ${c.struttura.telefono}` : ''}
+                                    </div>
+                                  </div>
+                                  {c.disponibilita_online && (
+                                    <span className="pill" style={{ background: 'var(--success-tint)', color: 'var(--success-text)' }}>
+                                      disponibile online
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {!r.prestazione_codice && (candidatiByRichiesta[r.id] ?? []).length > 0 && (
+                            <p style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 8 }}>
+                              Prestazione non ancora tradotta nel codice standard: qui sopra ci sono tutte le strutture della zona, non filtrate per prestazione.
+                            </p>
+                          )}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                           <div>
                             <h3 style={{ fontSize: 15, marginBottom: 12 }}>Esito ricerca</h3>
@@ -275,7 +352,7 @@ export default function Pipeline() {
                                 e.preventDefault()
                                 handleLogCall(r.id, e.currentTarget)
                               }}
-                              style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 12, padding: 14, marginBottom: 14 }}
+                              style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 14, marginBottom: 14 }}
                             >
                               <div className="field-row">
                                 <div className="field" style={{ minWidth: 120, flex: '0 0 120px' }}>
@@ -307,7 +384,7 @@ export default function Pipeline() {
                                 <p style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Nessuna chiamata registrata.</p>
                               )}
                               {(chiamateByRichiesta[r.id] ?? []).map((c) => (
-                                <div key={c.id} style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', fontSize: 12.5 }}>
+                                <div key={c.id} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', fontSize: 12.5 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                     <span className="pill">{c.canale === 'ai' ? 'AI' : 'Umano'}</span>
                                     <span className="mono" style={{ color: 'var(--ink-faint)' }}>{fmtDateTime(c.created_at)}</span>
